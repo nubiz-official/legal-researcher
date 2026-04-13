@@ -49,6 +49,25 @@ header[data-testid="stHeader"] { background: transparent !important; }
 .stDeployButton { display: none; }
 section[data-testid="stSidebar"] { background: #060b16; border-right: 1px solid #1e293b; }
 
+/* 본문 폭 고정 — 와이드 모니터에서 읽기 편하게 */
+.main .block-container,
+[data-testid="stMain"] .block-container,
+[data-testid="stAppViewContainer"] section.main > div.block-container {
+    max-width: 1100px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    padding-left: 2.5rem !important;
+    padding-right: 2.5rem !important;
+}
+@media (max-width: 1200px) {
+    .main .block-container,
+    [data-testid="stMain"] .block-container {
+        max-width: 100% !important;
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
+    }
+}
+
 .nav-link {
     display: block; padding: 5px 12px; margin: 2px 0;
     color: #9ca3af; text-decoration: none !important;
@@ -96,6 +115,46 @@ section[data-testid="stSidebar"] { background: #060b16; border-right: 1px solid 
     padding: 6px 12px;
     margin: 4px 0;
     font-family: 'IBM Plex Mono', monospace;
+}
+
+.roadmap-card {
+    background: linear-gradient(135deg, #101828, #1a2540);
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin: 16px 0;
+}
+.roadmap-card h3 {
+    color: #00c2a8;
+    margin: 0 0 8px 0;
+    font-size: 1.1rem;
+}
+.roadmap-card .pill {
+    display: inline-block;
+    font-size: 0.68rem;
+    padding: 2px 10px;
+    border-radius: 10px;
+    background: rgba(0,194,168,0.15);
+    color: #00c2a8;
+    margin-right: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+.roadmap-card .pill-gold { background: rgba(232,184,75,0.15); color: #e8b84b; }
+.roadmap-card .pill-purple { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+.roadmap-card p {
+    color: #9aa3bc;
+    font-size: 0.88rem;
+    line-height: 1.75;
+    margin: 12px 0 0 0;
+}
+.roadmap-card ul {
+    color: #c9cdd5;
+    font-size: 0.85rem;
+    line-height: 1.85;
+    margin-top: 10px;
+    padding-left: 20px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -502,6 +561,16 @@ with st.sidebar:
     for i, q in enumerate(sample_questions):
         if st.button(q, key=f"sq_{i}", use_container_width=True):
             st.session_state["legal_question"] = q
+            st.session_state["view_mode"] = "chat"
+
+    st.markdown("<hr style='border-color:#1e293b;'>", unsafe_allow_html=True)
+    st.markdown("### 향후 개선")
+
+    if st.button("💡 개선 로드맵 보기", key="btn_roadmap", use_container_width=True):
+        st.session_state["view_mode"] = "roadmap"
+
+    if st.button("🔍 법률 상담으로 복귀", key="btn_back_chat", use_container_width=True):
+        st.session_state["view_mode"] = "chat"
 
     st.markdown(f"""
     <hr style="border-color:#1e293b;">
@@ -578,7 +647,130 @@ with st.expander("🔌 API 연결 진단 (Railway 런타임 체크)", expanded=F
 
 if "legal_history" not in st.session_state:
     st.session_state["legal_history"] = []
+if "view_mode" not in st.session_state:
+    st.session_state["view_mode"] = "chat"
 
+# ─── 로드맵 뷰 ───
+if st.session_state["view_mode"] == "roadmap":
+    st.markdown("## 💡 Legal Researcher 향후 개선 로드맵")
+    st.caption("2026-04-13 브레인스토밍 · 디지털 CRO 17일 심화 세션 공식 제안 후보")
+
+    st.markdown("""
+    <div style="background: rgba(0,194,168,0.06); border-left: 3px solid #00c2a8; padding: 16px 20px; border-radius: 6px; margin: 16px 0;">
+        <strong style="color:#00c2a8;">현재 v2 상태</strong> — Anthropic Claude Tool Use + 법제처 Open API 4종 (법령·판례·법령해석·헌재결정)
+        실시간 조회. 2025년 개정 반영 확인 완료. 이 v2를 기반으로 아래 5가지 확장 방향을 검토함.
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("### 🎯 Claude 한국 법률 지식 지도 (RAG 필요 지점)")
+    st.markdown("""
+- ★★★★☆ 대법원·헌재 주요 판결, 민법·형법·근로기준법 교과서 지식
+- ★☆☆☆☆ 하급심 판결문, 조세·관세 심판례, 개별 지자체 조례
+- ★☆☆☆☆ **의료기기 특별법·식약처 고시·KFDA 지침** ← TeamNubiz 본업 공백
+- ☆☆☆☆☆ 2024~2026 최신 개정·신규 판결 (법제처 API가 해결 중)
+
+**결론**: RAG는 뻔한 답이 아니라 **법제처 API가 커버하지 못하는 위 지점**에 선택적으로 적용해야 가치가 있음.
+    """)
+
+    st.markdown("---")
+    st.markdown("### 💎 5가지 진화 방향")
+
+    st.markdown("""
+<div class="roadmap-card">
+<h3>1. 의료기기 RA 특화 <span class="pill">1순위</span> <span class="pill pill-gold">본업 최적</span></h3>
+<p>범용 법률 상담이 아닌 <strong>TeamNubiz 본업 수직 도구</strong>로 통합. 식약처·KFDA 고시, 의료기기법 시행규칙,
+ISO 13485, IEC 62304/60601-1, FDA CFR Title 21 Part 820 전용 코퍼스 RAG 구축.</p>
+<ul>
+<li>사용자가 신청서 초안 올리면 "이 부분은 고시 2023-XX에 위반 소지"라고 조문 지적</li>
+<li>patent-scout · rww-patent-analysis와 결합 → <strong>특허 침해 + 인허가 리스크 통합 스크리너</strong></li>
+<li>타깃: 한교수님 · 김영석 교수 · TeamNubiz 포트폴리오사 전부</li>
+<li>수익 모델: 인큐베이팅 포트폴리오사에 SaaS 제공</li>
+</ul>
+</div>
+""", unsafe_allow_html=True)
+
+    st.markdown("""
+<div class="roadmap-card">
+<h3>2. Regulatory Radar <span class="pill">2순위</span> <span class="pill pill-purple">저난이도 고가치</span></h3>
+<p>공공데이터포털 국회 의안정보 API + 법제처 신규고시 API 주기 크롤링으로
+<strong>실시간 입법·고시 추적 알림</strong>. 디지털 CRO 사업의 실사용 가치.</p>
+<ul>
+<li>"민법 개정안 발의됨 (2026-04-10, 주요 내용: ...)"</li>
+<li>"식약처 의료기기 허가·심사 고시 개정 예고 (2026-04-12)"</li>
+<li>관심 키워드 등록 → Slack · Email 알림</li>
+<li>포트폴리오사별 규제 영향 평가 리포트 자동 생성</li>
+</ul>
+</div>
+""", unsafe_allow_html=True)
+
+    st.markdown("""
+<div class="roadmap-card">
+<h3>3. Agentic Legal Workflow <span class="pill">3순위</span></h3>
+<p>단순 Q&amp;A를 넘어 <strong>사건 전주기를 자율 처리</strong>하는 에이전트.
+사용자가 사실관계를 설명하면 Claude가 단계별로 문서 생성 + 행동 지시까지.</p>
+<ul>
+<li>사실관계 5-why 인터뷰 (후속 질문 자동 생성)</li>
+<li>내용증명 PDF 자동 생성 (법적 근거 조문 자동 삽입)</li>
+<li>증거 수집 체크리스트 (사진·녹취·견적서 지침)</li>
+<li>소액사건 / 민사재판 구분 판단 + 소장 초안</li>
+<li>법률구조공단 · 변호사회 무료 상담 신청 URL 제공</li>
+</ul>
+</div>
+""", unsafe_allow_html=True)
+
+    st.markdown("""
+<div class="roadmap-card">
+<h3>4. 계약서 자동 리뷰 (Contract Intelligence) <span class="pill">4순위</span></h3>
+<p>PDF / HWP 계약서 업로드 → Claude가 조문별 리스크 분석 및 수정 제안.</p>
+<ul>
+<li>불공정 약관 조항 식별 (약관규제법 근거)</li>
+<li>판례 기반 무효·위법 조항 경고 (예: "대법원 2019다XXX로 무효")</li>
+<li>수정 조항 자동 제안 + 리스크 히트맵 시각화</li>
+<li>타깃: 스타트업 공동창업자 계약 · MOU · 라이선스 · NDA</li>
+</ul>
+</div>
+""", unsafe_allow_html=True)
+
+    st.markdown("""
+<div class="roadmap-card">
+<h3>5. 판결문 Full-Text + Semantic Graph <span class="pill">5순위</span> <span class="pill pill-purple">연구용</span></h3>
+<p>법제처 <code>precService.do</code>로 판결 전문 수집 → 벡터 임베딩 → <strong>판결문 지식 그래프</strong> 구축.</p>
+<ul>
+<li>같은 조문 해석 판결 10개 시간별 비교 → 해석 변천 자동 탐지</li>
+<li>대법원 판결의 인용 관계 네트워크 시각화 ("리딩 케이스" 식별)</li>
+<li>연구자·변호사용 학술 논문 소재 발굴 도구</li>
+</ul>
+</div>
+""", unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.markdown("### 🏗️ 아키텍처 진화 3축")
+    st.markdown("""
+1. **Multi-Agent 협업**: `law-searcher` + `contract-analyzer` + `risk-assessor` + `document-writer`
+   4개 서브 에이전트가 Orchestrator 아래 협업. NuBI Orchestrator 패턴 재활용.
+2. **장기 기억 (Persistent Memory)**: 사건별 파일(claim file) 저장. "지난주 그 건 어떻게 진행됐지?"
+   같은 맥락 호출. AgentDB 또는 SQLite + 벡터 인덱스.
+3. **Human-in-the-loop**: AI 1차 답변 → 제휴 변호사 검토·승인 → 최종 답변. 법적 책임 리스크 해소 +
+   변호사 사무소 수익원. 변호사 네트워크 사업 모델로 확장.
+    """)
+
+    st.markdown("### 📅 실행 로드맵")
+    st.markdown("""
+| 시점 | 작업 |
+|---|---|
+| **~4/14** | 미팅 준비 집중, Legal Researcher v2 현 상태 고정 |
+| **4/17** | 디지털 CRO 심화 세션에서 "의료기기 RA 특화" 한교수님께 공식 제안 |
+| **4월 말** | PoC: KFDA 고시 1~2개로 테스트 RAG 구축, 기존 서비스에 tool 추가 |
+| **5월** | 포트폴리오사 3곳 베타 시연 + 피드백 수집 |
+| **6월** | 정식 `services/medical-device-ra/` 별도 서비스 분기 |
+    """)
+
+    st.markdown("---")
+    st.info("좌측 사이드바의 **🔍 법률 상담으로 복귀** 버튼을 클릭하면 일반 법률 질문 화면으로 돌아갑니다.")
+
+    st.stop()
+
+# ─── 일반 법률 상담 뷰 (기본) ───
 col_q, col_btn = st.columns([5, 1])
 with col_q:
     question = st.text_area(
