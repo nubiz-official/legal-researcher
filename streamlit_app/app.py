@@ -16,10 +16,10 @@ v1 → v2 변경:
 import os
 import re
 import urllib.parse
-import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
+import requests
 import streamlit as st
 
 # ─────────────────────────── Page Config ───────────────────────────
@@ -113,15 +113,17 @@ TARGET_LABELS = {
 }
 
 
-def _http_get_xml(url: str, timeout: int = 15) -> str:
-    """XML 응답을 문자열로 가져온다. SSL 검증 생략 (일부 환경에서 실패 방지)."""
-    import ssl
-    req = urllib.request.Request(url, headers={"User-Agent": "nubiz-legal-researcher/2.0"})
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    with urllib.request.urlopen(req, context=ctx, timeout=timeout) as r:
-        return r.read().decode("utf-8", errors="replace")
+def _http_get_xml(url: str, timeout: int = 20) -> str:
+    """XML 응답을 문자열로 가져온다. requests 라이브러리 사용, SSL 검증 비활성."""
+    import warnings
+    warnings.filterwarnings("ignore", category=requests.packages.urllib3.exceptions.InsecureRequestWarning)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; nubiz-legal-researcher/2.1)",
+        "Accept": "application/xml, text/xml, */*",
+    }
+    resp = requests.get(url, headers=headers, timeout=timeout, verify=False)
+    resp.encoding = "utf-8"
+    return resp.text
 
 
 def _clean_cdata(text: str) -> str:
@@ -145,12 +147,20 @@ def law_search_api(target: str, query: str, display: int = 5) -> dict:
     try:
         xml_text = _http_get_xml(url)
     except Exception as e:
-        return {"ok": False, "error": f"API 호출 실패: {type(e).__name__}: {str(e)[:150]}"}
+        return {
+            "ok": False,
+            "error": f"API 호출 실패: {type(e).__name__}: {str(e)[:200]}",
+            "url": url,
+        }
 
     try:
         root = ET.fromstring(xml_text)
     except ET.ParseError as e:
-        return {"ok": False, "error": f"XML 파싱 실패: {str(e)[:150]}"}
+        return {
+            "ok": False,
+            "error": f"XML 파싱 실패: {str(e)[:150]} · body preview: {xml_text[:200]}",
+            "url": url,
+        }
 
     total = int(root.findtext("totalCnt") or "0")
     result_code = root.findtext("resultCode") or ""
@@ -529,6 +539,42 @@ Claude가 해석·요약한 것입니다. 실제 분쟁 또는 중요한 법적 
 <strong>변호사와 상담</strong>하시기 바랍니다.
 </div>
 """, unsafe_allow_html=True)
+
+# ─── 연결 진단 패널 (Railway 런타임에서 법제처 API 연결 가능 여부 확인) ───
+with st.expander("🔌 API 연결 진단 (Railway 런타임 체크)", expanded=False):
+    col_a, col_b = st.columns([1, 3])
+    with col_a:
+        if st.button("📡 진단 실행", use_container_width=True):
+            st.session_state["_diagnostic"] = True
+    with col_b:
+        st.caption("클릭하면 법제처 Open API로 테스트 쿼리(민법, 하자담보책임)를 보내고 결과를 표시합니다. Railway에서 API 접근이 안 되면 여기서 바로 확인됩니다.")
+
+    if st.session_state.get("_diagnostic"):
+        st.markdown("**테스트 1: `search_law('민법')`**")
+        r1 = law_search_api("law", "민법", 3)
+        if r1.get("ok"):
+            st.success(f"✅ 법령 API 연결 성공 · totalCnt={r1['total']} · 상위 {len(r1['items'])}건 수신")
+            if r1["items"]:
+                first = r1["items"][0]
+                st.code(f"첫 결과: {first.get('법령명한글', '?')} (MST={first.get('법령일련번호', '?')}, 공포일={first.get('공포일자', '?')})", language="text")
+        else:
+            st.error(f"❌ 법령 API 실패: {r1.get('error', 'unknown')}")
+            if "url" in r1:
+                st.caption(f"URL: {r1['url']}")
+
+        st.markdown("**테스트 2: `search_precedent('하자담보책임')`**")
+        r2 = law_search_api("prec", "하자담보책임", 3)
+        if r2.get("ok"):
+            st.success(f"✅ 판례 API 연결 성공 · totalCnt={r2['total']} · 상위 {len(r2['items'])}건 수신")
+            if r2["items"]:
+                first = r2["items"][0]
+                st.code(f"첫 결과: {first.get('사건명', '?')[:60]} (사건번호={first.get('사건번호', '?')}, 선고일={first.get('선고일자', '?')})", language="text")
+        else:
+            st.error(f"❌ 판례 API 실패: {r2.get('error', 'unknown')}")
+            if "url" in r2:
+                st.caption(f"URL: {r2['url']}")
+
+        st.markdown(f"**환경변수**: `LAW_GO_KR_OC={LAW_OC}` · `ANTHROPIC_API_KEY`={'✅ 설정됨' if os.environ.get('ANTHROPIC_API_KEY') else '❌ 미설정'}")
 
 if "legal_history" not in st.session_state:
     st.session_state["legal_history"] = []
